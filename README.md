@@ -1,26 +1,21 @@
 # Face Recognition API
 
-A RESTful API for face recognition built with Node.js, TypeScript, and Express.
+A REST API for face recognition in images using face-api.js.
 
 ## Features
 
-- TypeScript for type safety
-- Express for routing
-- Zod for runtime type validation
-- Composable functions for functional programming
-- Jest + Supertest for integration testing
-- Vitest for unit testing
-- ESLint + Prettier for code quality
-- Husky for Git hooks
+- Face detection and recognition using face-api.js
+- Search for matching faces in image albums
+- Type-safe API with Zod validation
+- Composable and testable architecture
+- Integration and unit tests
 
-## Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - Node.js 18 or higher
-- npm 7 or higher
+- npm or yarn
 
-### Installation
+## Setup
 
 1. Clone the repository:
 
@@ -35,13 +30,26 @@ cd face-recognition-api
 npm install
 ```
 
-3. Create a `.env` file:
+3. Run the setup script to download face-api.js models and create necessary directories:
+
+```bash
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
+
+4. Create a `.env` file:
 
 ```bash
 cp .env.sample .env
 ```
 
-### Development
+5. Add your face images:
+
+- Put face images to search for in `storage/faces/`
+- Create albums in `storage/gallery/`
+- Add pictures to search through in `storage/gallery/<album-name>/`
+
+## Development
 
 Start the development server:
 
@@ -49,72 +57,78 @@ Start the development server:
 npm run dev
 ```
 
-### Testing
-
-Run unit tests:
+Run tests:
 
 ```bash
 npm test
 ```
 
-Run integration tests:
+Run linter:
 
 ```bash
-npm run test:integration
+npm run lint
 ```
 
-### Building
-
-Build the project:
+Format code:
 
 ```bash
-npm run build
+npm run format
 ```
 
-Start the production server:
+## API Endpoints
 
-```bash
-npm start
-```
+### POST /face-recognition/match
 
-## API Documentation
+Search for matching faces in an album.
 
-### Health Check
-
-```http
-GET /health
-```
-
-Returns the health status of the API.
-
-#### Response
+**Request Body:**
 
 ```json
 {
-  "status": "ok",
-  "timestamp": "2025-02-14T00:21:33.769Z"
+  "albumName": "my-album",
+  "facePath": "person.jpg"
+}
+```
+
+**Response:**
+
+```json
+{
+  "matches": [
+    {
+      "imagePath": "storage/gallery/my-album/photo1.jpg",
+      "similarity": 0.92,
+      "boundingBox": {
+        "x": 100,
+        "y": 50,
+        "width": 200,
+        "height": 200
+      }
+    }
+  ]
 }
 ```
 
 ## Project Structure
 
-```
-src/
-├── functions/     # Pure functions and business logic
-├── routes/        # Express route handlers
-├── types/         # TypeScript type definitions
-├── app.ts         # Express app setup
-└── index.ts       # Application entry point
-```
+- `src/` - Source code
+  - `types/` - TypeScript types and Zod schemas
+  - `routes/` - Express route handlers
+  - `use-cases/` - Business logic
+  - `middleware/` - Express middleware
+- `storage/` - Image storage
+  - `faces/` - Face images to search for
+  - `gallery/` - Albums of images to search through
+- `models/` - face-api.js model files
+- `scripts/` - Setup and utility scripts
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Create a feature branch
+2. Make your changes
+3. Run tests and linting
+4. Create a pull request
 
 ## License
 
-This project is licensed under the ISC License.
+MIT
