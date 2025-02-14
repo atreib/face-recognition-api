@@ -9,6 +9,39 @@ import path from 'path';
 
 const router = Router();
 
+/**
+ * @openapi
+ * /face-recognition/match:
+ *   post:
+ *     tags: [Face Recognition]
+ *     summary: Find face matches in an album
+ *     description: Finds faces in the specified album that match the target face image
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FaceMatchRequest'
+ *     responses:
+ *       200:
+ *         description: Successfully found matches
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/FaceMatchResponse'
+ *       400:
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post('/match', async (req, res) => {
   const { logger } = req;
 
@@ -40,6 +73,40 @@ router.post('/match', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /face-recognition/album/{albumName}/images:
+ *   get:
+ *     tags: [Face Recognition]
+ *     summary: Get all images in an album by name
+ *     description: Returns a list of all image paths in the specified album
+ *     parameters:
+ *       - in: path
+ *         name: albumName
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Name of the album to get images from
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved album images
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AlbumImagesResponse'
+ *       400:
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/album/:albumName/images', async (req, res) => {
   const { logger } = req;
 
@@ -75,6 +142,41 @@ router.get('/album/:albumName/images', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /face-recognition/image/{imagePath}:
+ *   get:
+ *     tags: [Face Recognition]
+ *     summary: Get an image by path
+ *     description: Returns the image file at the specified path
+ *     parameters:
+ *       - in: path
+ *         name: imagePath
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Path to the image file
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved image
+ *         content:
+ *           image/*:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/image/:imagePath(*)', async (req, res) => {
   const { logger } = req;
 
