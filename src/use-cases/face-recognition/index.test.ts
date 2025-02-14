@@ -4,6 +4,18 @@ import * as faceapi from 'face-api.js';
 import fs from 'fs/promises';
 import { Dirent } from 'fs';
 import { success } from 'composable-functions';
+import { Logger } from '../../lib/logger';
+
+// Create a mock logger for testing
+const createMockLogger = (): Pick<
+  Logger,
+  'debug' | 'info' | 'warn' | 'error'
+> => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+});
 
 // Mock dependencies
 vi.mock('face-api.js', () => ({
@@ -56,8 +68,11 @@ vi.mock('canvas', () => {
 vi.mock('fs/promises');
 
 describe('Face Recognition Use Case', () => {
+  let mockLogger: ReturnType<typeof createMockLogger>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLogger = createMockLogger();
   });
 
   it('should return empty matches when no faces are found', async () => {
@@ -79,12 +94,18 @@ describe('Face Recognition Use Case', () => {
       >,
     );
 
-    const result = await findMatches({
-      albumName: 'test-album',
-      facePath: 'test-face.jpg',
-    });
+    const result = await findMatches(
+      {
+        albumName: 'test-album',
+        facePath: 'test-face.jpg',
+      },
+      { logger: mockLogger as unknown as Logger },
+    );
 
     expect(result).toEqual(success({ matches: [] }));
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'No face found in target image',
+    );
   });
 
   it('should return matches when faces are found', async () => {
@@ -116,7 +137,7 @@ describe('Face Recognition Use Case', () => {
 
     // Mock detectSingleFace to always return the same mock
     vi.mocked(faceapi.detectSingleFace).mockImplementation(() => {
-      console.log('detectSingleFace called');
+      mockLogger.debug('Face detection started');
       return mockDetectSingleFace as unknown as ReturnType<
         typeof faceapi.detectSingleFace
       >;
@@ -124,16 +145,19 @@ describe('Face Recognition Use Case', () => {
 
     // Mock distance calculation to return a good match
     vi.mocked(faceapi.euclideanDistance).mockImplementation((desc1, desc2) => {
-      console.log('euclideanDistance called with:', desc1, desc2);
+      mockLogger.debug('Calculating face similarity', { desc1, desc2 });
       return 0.3; // 1 - 0.3 = 0.7 similarity
     });
 
-    const result = await findMatches({
-      albumName: 'test-album',
-      facePath: 'test-face.jpg',
-    });
+    const result = await findMatches(
+      {
+        albumName: 'test-album',
+        facePath: 'test-face.jpg',
+      },
+      { logger: mockLogger as unknown as Logger },
+    );
 
-    console.log('Test result:', JSON.stringify(result, null, 2));
+    mockLogger.info('Test completed', { result });
 
     expect(result).toEqual(
       success({
@@ -157,5 +181,6 @@ describe('Face Recognition Use Case', () => {
     expect(mockWithFaceLandmarks).toHaveBeenCalledTimes(2);
     expect(mockWithFaceDescriptor).toHaveBeenCalledTimes(2);
     expect(faceapi.euclideanDistance).toHaveBeenCalledTimes(1);
+    expect(mockLogger.info).toHaveBeenCalledWith('Test completed', { result });
   });
 });

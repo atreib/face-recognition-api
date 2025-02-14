@@ -5,6 +5,7 @@ import { readdir } from 'fs/promises';
 import { Dirent } from 'fs';
 import path from 'path';
 import { FaceMatchRequest } from '../../types/face-recognition';
+import { Logger } from '../../lib/logger';
 
 // Monkey patch the faceapi canvas with type assertions for Node's canvas implementation
 faceapi.env.monkeyPatch({
@@ -32,9 +33,13 @@ const similarityThreshold = parseFloat(
 
 const getFaceDescriptor = async (
   imagePath: string,
+  dependencies: {
+    logger: Logger;
+  },
 ): Promise<faceapi.WithFaceDescriptor<
   faceapi.WithFaceLandmarks<{ detection: faceapi.FaceDetection }>
 > | null> => {
+  const { logger } = dependencies;
   await loadModels();
 
   const img = await loadImage(imagePath);
@@ -42,90 +47,100 @@ const getFaceDescriptor = async (
   const ctx = canvas.getContext('2d');
   ctx.drawImage(img, 0, 0);
 
-  console.log(`Getting face descriptor for ${imagePath}`);
+  logger.debug(`Getting face descriptor for ${imagePath}`);
   const detection = await faceapi
     .detectSingleFace(canvas as unknown as HTMLCanvasElement)
     .withFaceLandmarks()
     .withFaceDescriptor();
-  console.log(`Face detection result for ${imagePath}:`, detection);
+  logger.debug(`Face detection result for ${imagePath}:`, { detection });
 
   return detection || null;
 };
 
-export const findMatches = composable(async (request: FaceMatchRequest) => {
-  const { albumName, facePath } = request;
-  const faceImagePath = path.join('storage', 'faces', facePath);
-  const galleryPath = path.join('storage', 'gallery', albumName);
+export const findMatches = composable(
+  async (
+    request: FaceMatchRequest,
+    dependencies: {
+      logger: Logger;
+    },
+  ) => {
+    const { albumName, facePath } = request;
+    const { logger } = dependencies;
+    const faceImagePath = path.join('storage', 'faces', facePath);
+    const galleryPath = path.join('storage', 'gallery', albumName);
 
-  // Get face descriptor for the target face
-  console.log('Getting target face descriptor...');
-  console.log('similarityThreshold: ', similarityThreshold);
-  const targetFace = await getFaceDescriptor(faceImagePath);
-  if (!targetFace) {
-    console.log('No face found in target image');
-    return { matches: [] };
-  }
-  console.log('Target face descriptor:', targetFace.descriptor);
+    // Get face descriptor for the target face
+    logger.debug('Getting target face descriptor...');
+    logger.debug('similarityThreshold: ', similarityThreshold);
+    const targetFace = await getFaceDescriptor(faceImagePath, { logger });
+    if (!targetFace) {
+      logger.info('No face found in target image');
+      return { matches: [] };
+    }
+    logger.debug('Target face descriptor:', {
+      descriptor: targetFace.descriptor,
+    });
 
-  // Get all images from the gallery
-  const files = await readdir(galleryPath, { withFileTypes: true });
-  console.log('Raw files from readdir:', files);
-  const imageFiles = files.filter((file: Dirent) => {
-    const isImage = /\.(jpg|jpeg|png)$/i.test(file.name);
-    console.log(`File ${file.name} is image: ${isImage}`);
-    return isImage;
-  });
-  console.log('Filtered image files:', imageFiles);
+    // Get all images from the gallery
+    const files = await readdir(galleryPath, { withFileTypes: true });
+    logger.debug('Raw files from readdir:', { files });
+    const imageFiles = files.filter((file: Dirent) => {
+      const isImage = /\.(jpg|jpeg|png)$/i.test(file.name);
+      logger.debug(`File ${file.name} is image: ${isImage}`);
+      return isImage;
+    });
+    logger.debug('Filtered image files:', { imageFiles });
 
-  // Process each gallery image
-  const matches = [];
-  for (const file of imageFiles) {
-    const imagePath = path.join(galleryPath, file.name);
-    console.log(`Processing gallery image: ${imagePath}`);
+    // Process each gallery image
+    const matches = [];
+    for (const file of imageFiles) {
+      const imagePath = path.join(galleryPath, file.name);
+      logger.debug(`Processing gallery image: ${imagePath}`);
 
-    try {
-      const detection = await getFaceDescriptor(imagePath);
-      if (!detection) {
-        console.log(`No face found in gallery image: ${imagePath}`);
+      try {
+        const detection = await getFaceDescriptor(imagePath, { logger });
+        if (!detection) {
+          logger.info(`No face found in gallery image: ${imagePath}`);
+          continue;
+        }
+        logger.debug(`Found face in gallery image: ${imagePath}`);
+
+        // Calculate similarity
+        const distance = faceapi.euclideanDistance(
+          targetFace.descriptor,
+          detection.descriptor,
+        );
+        const similarity = 1 - distance;
+        logger.debug(`Similarity for ${imagePath}: ${similarity}`);
+
+        // Only include matches above threshold
+        if (similarity > similarityThreshold) {
+          logger.info(`Adding match: ${imagePath} (similarity: ${similarity})`);
+          matches.push({
+            imagePath: path.relative(process.cwd(), imagePath),
+            similarity,
+            boundingBox: {
+              x: detection.detection.box.x,
+              y: detection.detection.box.y,
+              width: detection.detection.box.width,
+              height: detection.detection.box.height,
+            },
+          });
+        }
+      } catch (error) {
+        if (error instanceof Error) {
+          logger.warn(`Skipping ${file.name}: ${error.message}`);
+        }
         continue;
       }
-      console.log(`Found face in gallery image: ${imagePath}`);
-
-      // Calculate similarity
-      const distance = faceapi.euclideanDistance(
-        targetFace.descriptor,
-        detection.descriptor,
-      );
-      const similarity = 1 - distance;
-      console.log(`Similarity for ${imagePath}: ${similarity}`);
-
-      // Only include matches above threshold
-      if (similarity > similarityThreshold) {
-        console.log(`Adding match: ${imagePath} (similarity: ${similarity})`);
-        matches.push({
-          imagePath: path.relative(process.cwd(), imagePath),
-          similarity,
-          boundingBox: {
-            x: detection.detection.box.x,
-            y: detection.detection.box.y,
-            width: detection.detection.box.width,
-            height: detection.detection.box.height,
-          },
-        });
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        console.warn(`Skipping ${file.name}: ${error.message}`);
-      }
-      continue;
     }
-  }
 
-  // Sort matches by similarity (highest first)
-  matches.sort((a, b) => b.similarity - a.similarity);
-  console.log('Final matches:', matches);
+    // Sort matches by similarity (highest first)
+    matches.sort((a, b) => b.similarity - a.similarity);
+    logger.info('Final matches:', { matches });
 
-  return {
-    matches,
-  };
-});
+    return {
+      matches,
+    };
+  },
+);
