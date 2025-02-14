@@ -16,6 +16,7 @@
 - Always use Git to commit your changes
 - Make your commits small, atomic and concise
 - Make sure you write a meaningful commit message with a detailed description on the body of the commit
+- Commit your commits with the -S flag to sign the commit
 - Configurations must be environment variables, and you should never push your .env file (create a .env.sample with placeholder values)
 - **ALWAYS** Work with your AI team in a feedback loop! Search, try, review, test, repeat.
 
