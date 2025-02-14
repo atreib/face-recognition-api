@@ -1,0 +1,312 @@
+<this-repo Guidelines>
+
+# Guidelines to work in this project
+
+- Use zod to create types and validate your input and output
+- Do not repeat your types, create a `/types` folder and re-use your types
+- Extract/pick types from other types for relationships
+- Use express to create your routes
+- Every route must have an integration test making sure that the right input returns the right output (use Jest + Supertest)
+- Write small, composable, pure functions using composable-functions
+- Unit test your functions using Vitest
+- Always make sure you code is formatted with Prettier
+- Always make sure you code is linted with ESLint
+- Always use Perplexity to search the web for best practices around the subject you are working on
+- Always use Gemini to peer review the code you write
+- Always use Git to commit your changes
+- Make your commits small, atomic and concise
+- Make sure you write a meaningful commit message with a detailed description on the body of the commit
+- Configurations must be environment variables, and you should never push your .env file (create a .env.sample with placeholder values)
+- Work with your AI team in a feedback loop! Search, try, review, test, repeat.
+
+<this-repo Integration>
+
+<composable-functions Docs>
+
+Certainly! Here's a comprehensive overview of the `composable-functions` library, which provides types and functions to facilitate safe and efficient function composition in TypeScript.
+
+# Composable Functions
+
+The `composable-functions` library offers utilities to create and manage composable functions, enabling seamless and type-safe function composition.
+
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Creating Primitive Composables](#creating-primitive-composables)
+- [Sequential Composition](#sequential-composition)
+- [Parallel Composition](#parallel-composition)
+- [Handling Errors](#handling-errors)
+- [Runtime Validation with Schemas](#runtime-validation-with-schemas)
+- [API Reference](#api-reference)
+
+## Introduction
+
+A **Composable** is a function that returns a `Promise` of a `Result<T>`, where `T` is the desired return type. The `Result` type represents either a failure (containing a list of errors) or a success (containing the computed value).
+
+## Creating Primitive Composables
+
+To create a composable function, use the `composable` function:
+
+```typescript
+import { composable } from "composable-functions";
+
+const add = composable((a: number, b: number) => a + b);
+//    ^? Composable<(a: number, b: number) => number>
+```
+
+Alternatively, you can use combinators to work with both plain functions and composables:
+
+```typescript
+import { composable, pipe } from "composable-functions";
+
+const add = composable((a: number, b: number) => a + b);
+//    ^? Composable<(a: number, b: number) => number>
+const toString = (a: unknown) => `${a}`;
+
+const addAndReturnString = pipe(add, toString);
+//    ^? Composable<(a: number, b: number) => string>
+```
+
+## Sequential Composition
+
+Compose functions sequentially using the `pipe` function:
+
+```typescript
+import { pipe } from "composable-functions";
+
+const add = composable((a: number, b: number) => a + b);
+const toString = (a: unknown) => `${a}`;
+
+const addAndReturnString = pipe(add, toString);
+//    ^? Composable<(a: number, b: number) => string>
+```
+
+Attempting to compose functions in an incompatible order will result in a type error:
+
+```typescript
+import { pipe } from "composable-functions";
+
+const add = composable((a: number, b: number) => a + b);
+const toString = (a: unknown) => `${a}`;
+
+const invalidComposition = pipe(toString, add);
+//    ^? Internal.FailToCompose<string, number>
+```
+
+## Parallel Composition
+
+For parallel composition, use the `all` function:
+
+```typescript
+import { all } from "composable-functions";
+
+const add = (a: number, b: number) => a + b;
+const mul = (a: number, b: number) => a * b;
+
+const addAndMul = all(add, mul);
+//    ^? Composable<(a: number, b: number) => [number, number]>
+```
+
+The result is a tuple containing the outputs of the composed functions. All input functions must be compatible and operate on the same input.
+
+To work with records instead of tuples, use the `collect` function.
+
+## Handling Errors
+
+A `Composable` always returns a `Result<T>` that may represent either a failure or a success. Any exception inside a `Composable` will be caught and returned as a failure with a list of errors.
+
+```typescript
+import { composable } from "composable-functions";
+
+const fn = composable((a: number) => {
+  throw new Error("Something went wrong");
+  return a * 2;
+});
+
+const result = await fn(2);
+console.log(result.errors[0].message);
+// Output: 'Something went wrong'
+```
+
+## Runtime Validation with Schemas
+
+To ensure type safety at runtime, use the `applySchema` function to validate external inputs against defined schemas. These schemas can be specified with libraries such as Zod.
+
+```typescript
+import { applySchema } from "composable-functions";
+import { z } from "zod";
+
+const addAndReturnWithRuntimeValidation = applySchema(
+  z.number(),
+  z.number()
+)(addAndReturnString);
+```
+
+Note that the resulting `Composable` will have `unknown` types for the parameters, as runtime validation is applied.
+
+## API Reference
+
+### `applySchema`
+
+Transforms a function or a composition of functions into a `ComposableWithSchema`, enabling runtime type assertions.
+
+```typescript
+import { applySchema } from "composable-functions";
+import { z } from "zod";
+
+const fn = (
+  { greeting }: { greeting: string },
+  { user }: { user: { name: string } }
+) => ({
+  message: `${greeting} ${user.name}`,
+});
+
+const safeFunction = applySchema(
+  z.object({ greeting: z.string() }),
+  z.object({ user: z.object({ name: z.string() }) })
+)(fn);
+
+//    ^? ComposableWithSchema<{ message: string }>
+```
+
+### `composable`
+
+Creates a composable function from a given function.
+
+```typescript
+import { composable } from "composable-functions";
+
+const add = composable((a: number, b: number) => a + b);
+//    ^? Composable<(a: number, b: number) => number>
+```
+
+### `failure`
+
+Helper function to create a `Failure` result.
+
+```typescript
+import { failure } from "composable-functions";
+
+const result = failure([new Error("Something went wrong")]);
+//    ^? Failure
+```
+
+### `fromSuccess`
+
+Unwraps a composable, expecting it to succeed. Throws errors if the composable fails.
+
+```typescript
+import { fromSuccess, composable } from "composable-functions";
+
+const fn = composable(async (id: string) => {
+  const valueB = await fromSuccess(anotherComposable)({ userId: id });
+  return { valueA, valueB };
+});
+```
+
+### `success`
+
+Helper function to create a `Success` result.
+
+```typescript
+import { success } from "composable-functions";
+
+const result = success(42);
+//    ^? Success<number>
+```
+
+For more detailed information and advanced usage, please refer to the [API documentation](https://github.com/seasonedcc/composable-functions/blob/main/API.md).
+
+</composable-functions Docs>
+
+<cursor-tools Integration>
+# Instructions
+Use the following commands to get AI assistance:
+
+**Web Search:**
+`cursor-tools web "<your question>"` - Get answers from the web using Perplexity AI (e.g., `cursor-tools web "latest weather in London"`)
+when using web for complex queries suggest writing the output to a file somewhere like local-research/<query summary>.md.
+
+**Repository Context:**
+`cursor-tools repo "<your question>"` - Get context-aware answers about this repository using Google Gemini (e.g., `cursor-tools repo "explain authentication flow"`)
+
+**Documentation Generation:**
+`cursor-tools doc [options]` - Generate comprehensive documentation for this repository (e.g., `cursor-tools doc --output docs.md`)
+when using doc for remote repos suggest writing the output to a file somewhere like local-docs/<repo-name>.md.
+
+**GitHub Information:**
+`cursor-tools github pr [number]` - Get the last 10 PRs, or a specific PR by number (e.g., `cursor-tools github pr 123`)
+`cursor-tools github issue [number]` - Get the last 10 issues, or a specific issue by number (e.g., `cursor-tools github issue 456`)
+
+**Stagehand Browser Automation:**
+`cursor-tools browser open <url> [options]` - Open a URL and capture page content, console logs, and network activity (e.g., `cursor-tools browser open "https://example.com" --html`)
+`cursor-tools browser act "<instruction>" --url=<url> [options]` - Execute actions on a webpage using natural language instructions (e.g., `cursor-tools browser act "Click Login" --url=https://example.com`)
+`cursor-tools browser observe "<instruction>" --url=<url> [options]` - Observe interactive elements on a webpage and suggest possible actions (e.g., `cursor-tools browser observe "interactive elements" --url=https://example.com`)
+`cursor-tools browser extract "<instruction>" --url=<url> [options]` - Extract data from a webpage based on natural language instructions (e.g., `cursor-tools browser extract "product names" --url=https://example.com/products`)
+
+**Notes on Browser Commands:**
+
+- All browser commands are stateless unless --connect-to is used to connect to a long-lived interactive session. In disconnected mode each command starts with a fresh browser instance and closes it when done.
+- When using `--connect-to`, special URL values are supported:
+  - `current`: Use the existing page without reloading
+  - `reload-current`: Use the existing page and refresh it (useful in development)
+- Multi step workflows involving state or combining multiple actions are supported in the `act` command using the pipe (|) separator (e.g., `cursor-tools browser act "Click Login | Type 'user@example.com' into email | Click Submit" --url=https://example.com`)
+- Video recording is available for all browser commands using the `--video=<directory>` option. This will save a video of the entire browser interaction at 1280x720 resolution. The video file will be saved in the specified directory with a timestamp.
+- DO NOT ask browser act to "wait" for anything, the wait command is currently disabled in Stagehand.
+
+**Tool Recommendations:**
+
+- `cursor-tools web` is best for general web information not specific to the repository.
+- `cursor-tools repo` is ideal for repository-specific questions, planning, code review and debugging.
+- `cursor-tools doc` generates documentation for local or remote repositories.
+- `cursor-tools browser` is useful for testing and debugging web apps.
+
+**Running Commands:**
+
+1. **Installed version:** Use `cursor-tools <command>` (if in PATH) or `npm exec cursor-tools "<command>"`, `yarn cursor-tools "<command>"`, `pnpm cursor-tools "<command>"`.
+2. **Without installation:** Use `npx -y cursor-tools@latest "<command>"` or `bunx -y cursor-tools@latest "<command>"`.
+
+**General Command Options (Supported by all commands):**
+--model=<model name>: Specify an alternative AI model to use.
+--max-tokens=<number>: Control response length
+--save-to=<file path>: Save command output to a file (in _addition_ to displaying it)
+--help: View all available options (help is not fully implemented yet)
+
+**Documentation Command Options:**
+--from-github=<GitHub username>/<repository name>[@<branch>]: Generate documentation for a remote GitHub repository
+
+**GitHub Command Options:**
+--from-github=<GitHub username>/<repository name>[@<branch>]: Access PRs/issues from a specific GitHub repository
+
+**Browser Command Options (for 'open', 'act', 'observe', 'extract'):**
+--console: Capture browser console logs (enabled by default, use --no-console to disable)
+--html: Capture page HTML content (disabled by default)
+--network: Capture network activity (enabled by default, use --no-network to disable)
+--screenshot=<file path>: Save a screenshot of the page
+--timeout=<milliseconds>: Set navigation timeout (default: 120000ms for Stagehand operations, 30000ms for navigation)
+--viewport=<width>x<height>: Set viewport size (e.g., 1280x720). When using --connect-to, viewport is only changed if this option is explicitly provided
+--headless: Run browser in headless mode (default: true)
+--no-headless: Show browser UI (non-headless mode) for debugging
+--connect-to=<port>: Connect to existing Chrome instance. Special values: 'current' (use existing page), 'reload-current' (refresh existing page)
+--wait=<time:duration or selector:css-selector>: Wait after page load (e.g., 'time:5s', 'selector:#element-id')
+--video=<directory>: Save a video recording (1280x720 resolution, timestamped subdirectory). Not available when using --connect-to
+
+**Nicknames**
+Users can ask for these tools using nicknames
+Gemini is a nickname for cursor-tools repo
+Perplexity is a nickname for cursor-tools web
+Stagehand is a nickname for cursor-tools browser
+
+**Additional Notes:**
+
+- For detailed information, see `node_modules/cursor-tools/README.md` (if installed locally).
+- Configuration is in `cursor-tools.config.json` (or `~/.cursor-tools/config.json`).
+- API keys are loaded from `.cursor-tools.env` (or `~/.cursor-tools/.env`).
+- Browser commands require separate installation of Playwright: `npm install --save-dev playwright` or `npm install -g playwright`.
+- The default Stagehand model is set in `cursor-tools.config.json`, but can be overridden with the `--model` option.
+- Available models depend on your configured provider (OpenAI or Anthropic) in `cursor-tools.config.json`.
+- repo has a limit of 2M tokens of context. The context can be reduced by filtering out files in a .repomixignore file.
+- problems running browser commands may be because playwright is not installed. Recommend installing playwright globally.
+- **Remember:** You're part of a team of superhuman expert AIs. Work together to solve complex problems.
+  <!-- cursor-tools-version: 0.5.1-alpha.2 -->
+  </cursor-tools Integration>
