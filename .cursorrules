@@ -3,7 +3,7 @@
 # Guidelines to work in this project
 
 - Use zod to create types and validate your input and output
-- Do not repeat your types, create a `/types` folder and re-use your types
+- Do not repeat your types. Put the types closer to the source of truth and re-use them!
 - Extract/pick types from other types for relationships
 - Use express to create your routes
 - Every route must have an integration test making sure that the right input returns the right output (use Jest + Supertest)
@@ -17,7 +17,7 @@
 - Make your commits small, atomic and concise
 - Make sure you write a meaningful commit message with a detailed description on the body of the commit
 - Configurations must be environment variables, and you should never push your .env file (create a .env.sample with placeholder values)
-- Work with your AI team in a feedback loop! Search, try, review, test, repeat.
+- **ALWAYS** Work with your AI team in a feedback loop! Search, try, review, test, repeat.
 
 <this-repo Integration>
 
@@ -48,7 +48,7 @@ A **Composable** is a function that returns a `Promise` of a `Result<T>`, where 
 To create a composable function, use the `composable` function:
 
 ```typescript
-import { composable } from "composable-functions";
+import { composable } from 'composable-functions';
 
 const add = composable((a: number, b: number) => a + b);
 //    ^? Composable<(a: number, b: number) => number>
@@ -57,7 +57,7 @@ const add = composable((a: number, b: number) => a + b);
 Alternatively, you can use combinators to work with both plain functions and composables:
 
 ```typescript
-import { composable, pipe } from "composable-functions";
+import { composable, pipe } from 'composable-functions';
 
 const add = composable((a: number, b: number) => a + b);
 //    ^? Composable<(a: number, b: number) => number>
@@ -72,7 +72,7 @@ const addAndReturnString = pipe(add, toString);
 Compose functions sequentially using the `pipe` function:
 
 ```typescript
-import { pipe } from "composable-functions";
+import { pipe } from 'composable-functions';
 
 const add = composable((a: number, b: number) => a + b);
 const toString = (a: unknown) => `${a}`;
@@ -84,7 +84,7 @@ const addAndReturnString = pipe(add, toString);
 Attempting to compose functions in an incompatible order will result in a type error:
 
 ```typescript
-import { pipe } from "composable-functions";
+import { pipe } from 'composable-functions';
 
 const add = composable((a: number, b: number) => a + b);
 const toString = (a: unknown) => `${a}`;
@@ -98,7 +98,7 @@ const invalidComposition = pipe(toString, add);
 For parallel composition, use the `all` function:
 
 ```typescript
-import { all } from "composable-functions";
+import { all } from 'composable-functions';
 
 const add = (a: number, b: number) => a + b;
 const mul = (a: number, b: number) => a * b;
@@ -116,10 +116,10 @@ To work with records instead of tuples, use the `collect` function.
 A `Composable` always returns a `Result<T>` that may represent either a failure or a success. Any exception inside a `Composable` will be caught and returned as a failure with a list of errors.
 
 ```typescript
-import { composable } from "composable-functions";
+import { composable } from 'composable-functions';
 
 const fn = composable((a: number) => {
-  throw new Error("Something went wrong");
+  throw new Error('Something went wrong');
   return a * 2;
 });
 
@@ -133,12 +133,12 @@ console.log(result.errors[0].message);
 To ensure type safety at runtime, use the `applySchema` function to validate external inputs against defined schemas. These schemas can be specified with libraries such as Zod.
 
 ```typescript
-import { applySchema } from "composable-functions";
-import { z } from "zod";
+import { applySchema } from 'composable-functions';
+import { z } from 'zod';
 
 const addAndReturnWithRuntimeValidation = applySchema(
   z.number(),
-  z.number()
+  z.number(),
 )(addAndReturnString);
 ```
 
@@ -151,19 +151,19 @@ Note that the resulting `Composable` will have `unknown` types for the parameter
 Transforms a function or a composition of functions into a `ComposableWithSchema`, enabling runtime type assertions.
 
 ```typescript
-import { applySchema } from "composable-functions";
-import { z } from "zod";
+import { applySchema } from 'composable-functions';
+import { z } from 'zod';
 
 const fn = (
   { greeting }: { greeting: string },
-  { user }: { user: { name: string } }
+  { user }: { user: { name: string } },
 ) => ({
   message: `${greeting} ${user.name}`,
 });
 
 const safeFunction = applySchema(
   z.object({ greeting: z.string() }),
-  z.object({ user: z.object({ name: z.string() }) })
+  z.object({ user: z.object({ name: z.string() }) }),
 )(fn);
 
 //    ^? ComposableWithSchema<{ message: string }>
@@ -174,7 +174,7 @@ const safeFunction = applySchema(
 Creates a composable function from a given function.
 
 ```typescript
-import { composable } from "composable-functions";
+import { composable } from 'composable-functions';
 
 const add = composable((a: number, b: number) => a + b);
 //    ^? Composable<(a: number, b: number) => number>
@@ -185,9 +185,9 @@ const add = composable((a: number, b: number) => a + b);
 Helper function to create a `Failure` result.
 
 ```typescript
-import { failure } from "composable-functions";
+import { failure } from 'composable-functions';
 
-const result = failure([new Error("Something went wrong")]);
+const result = failure([new Error('Something went wrong')]);
 //    ^? Failure
 ```
 
@@ -196,7 +196,7 @@ const result = failure([new Error("Something went wrong")]);
 Unwraps a composable, expecting it to succeed. Throws errors if the composable fails.
 
 ```typescript
-import { fromSuccess, composable } from "composable-functions";
+import { fromSuccess, composable } from 'composable-functions';
 
 const fn = composable(async (id: string) => {
   const valueB = await fromSuccess(anotherComposable)({ userId: id });
@@ -209,7 +209,7 @@ const fn = composable(async (id: string) => {
 Helper function to create a `Success` result.
 
 ```typescript
-import { success } from "composable-functions";
+import { success } from 'composable-functions';
 
 const result = success(42);
 //    ^? Success<number>
@@ -263,8 +263,7 @@ when using doc for remote repos suggest writing the output to a file somewhere l
 
 **Running Commands:**
 
-1. **Installed version:** Use `cursor-tools <command>` (if in PATH) or `npm exec cursor-tools "<command>"`, `yarn cursor-tools "<command>"`, `pnpm cursor-tools "<command>"`.
-2. **Without installation:** Use `npx -y cursor-tools@latest "<command>"` or `bunx -y cursor-tools@latest "<command>"`.
+Use `cursor-tools <command>` (if in PATH) or `npm exec cursor-tools "<command>"`, `yarn cursor-tools "<command>"`, `pnpm cursor-tools "<command>"`.
 
 **General Command Options (Supported by all commands):**
 --model=<model name>: Specify an alternative AI model to use.
