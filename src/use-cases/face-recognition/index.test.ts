@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { findMatches } from '.';
+import { findMatches, getAlbumImages } from '.';
 import * as faceapi from 'face-api.js';
 import fs from 'fs/promises';
 import { Dirent } from 'fs';
@@ -182,5 +182,66 @@ describe('Face Recognition Use Case', () => {
     expect(mockWithFaceDescriptor).toHaveBeenCalledTimes(2);
     expect(faceapi.euclideanDistance).toHaveBeenCalledTimes(1);
     expect(mockLogger.info).toHaveBeenCalledWith('Test completed', { result });
+  });
+
+  describe('getAlbumImages', () => {
+    it('should return empty array when album does not exist', async () => {
+      // Mock readdir to throw ENOENT error
+      vi.mocked(fs.readdir).mockRejectedValue(
+        Object.assign(new Error(), { code: 'ENOENT' }),
+      );
+
+      const result = await getAlbumImages(
+        { albumName: 'non-existent-album' },
+        { logger: mockLogger as unknown as Logger },
+      );
+
+      expect(result).toEqual(success({ images: [] }));
+      expect(mockLogger.warn).toHaveBeenCalledWith('Album not found', {
+        albumName: 'non-existent-album',
+      });
+    });
+
+    it('should return array of image paths for existing album', async () => {
+      // Mock file system
+      const mockDirents = [
+        { name: 'image1.jpg', isFile: () => true } as Dirent,
+        { name: 'image2.png', isFile: () => true } as Dirent,
+        { name: 'not-an-image.txt', isFile: () => true } as Dirent,
+      ];
+      vi.mocked(fs.readdir).mockResolvedValue(mockDirents);
+
+      const result = await getAlbumImages(
+        { albumName: 'test-album' },
+        { logger: mockLogger as unknown as Logger },
+      );
+
+      expect(result).toEqual(
+        success({
+          images: [
+            'storage/gallery/test-album/image1.jpg',
+            'storage/gallery/test-album/image2.png',
+          ],
+        }),
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Successfully retrieved album images',
+        { count: 2 },
+      );
+    });
+
+    it('should return failure for unexpected errors', async () => {
+      // Mock readdir to throw unexpected error
+      const error = new Error('Unexpected error');
+      vi.mocked(fs.readdir).mockRejectedValue(error);
+
+      const result = await getAlbumImages(
+        { albumName: 'test-album' },
+        { logger: mockLogger as unknown as Logger },
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.errors[0].message).toBe('Unexpected error');
+    });
   });
 });

@@ -4,7 +4,10 @@ import { composable } from 'composable-functions';
 import { readdir } from 'fs/promises';
 import { Dirent } from 'fs';
 import path from 'path';
-import { FaceMatchRequest } from '../../types/face-recognition';
+import {
+  FaceMatchRequest,
+  AlbumImagesRequest,
+} from '../../types/face-recognition';
 import { Logger } from '../../lib/logger';
 
 // Monkey patch the faceapi canvas with type assertions for Node's canvas implementation
@@ -142,5 +145,49 @@ export const findMatches = composable(
     return {
       matches,
     };
+  },
+);
+
+export const getAlbumImages = composable(
+  async (request: AlbumImagesRequest, dependencies: { logger: Logger }) => {
+    const { albumName } = request;
+    const { logger } = dependencies;
+    const galleryPath = path.join('storage', 'gallery', albumName);
+
+    logger.debug('Getting images from album', { albumName });
+
+    try {
+      // Get all images from the gallery
+      const files = await readdir(galleryPath, { withFileTypes: true });
+      logger.debug('Raw files from readdir:', { files });
+
+      const imageFiles = files.filter((file: Dirent) => {
+        const isImage = /\.(jpg|jpeg|png)$/i.test(file.name);
+        logger.debug(`File ${file.name} is image: ${isImage}`);
+        return isImage;
+      });
+
+      logger.debug('Filtered image files:', { imageFiles });
+
+      // Map to relative paths
+      const images = imageFiles.map((file) =>
+        path.relative(process.cwd(), path.join(galleryPath, file.name)),
+      );
+
+      logger.info('Successfully retrieved album images', {
+        count: images.length,
+      });
+      return { images };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        logger.warn('Album not found', { albumName });
+        return { images: [] };
+      }
+      throw error;
+    }
   },
 );

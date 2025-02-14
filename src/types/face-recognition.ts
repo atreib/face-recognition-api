@@ -25,3 +25,15 @@ export const FaceMatchResponseSchema = z.object({
 });
 
 export type FaceMatchResponse = z.infer<typeof FaceMatchResponseSchema>;
+
+export const AlbumImagesRequestSchema = z.object({
+  albumName: z.string().min(1),
+});
+
+export type AlbumImagesRequest = z.infer<typeof AlbumImagesRequestSchema>;
+
+export const AlbumImagesResponseSchema = z.object({
+  images: z.array(z.string()),
+});
+
+export type AlbumImagesResponse = z.infer<typeof AlbumImagesResponseSchema>;

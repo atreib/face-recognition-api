@@ -68,4 +68,35 @@ describe('Face Recognition API', () => {
     //   }
     // })
   });
+
+  describe('GET /face-recognition/album/:albumName/images', () => {
+    it('should return empty array for non-existent album', async () => {
+      const response = await request(app)
+        .get('/face-recognition/album/non-existent-album/images')
+        .send();
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ images: [] });
+    });
+
+    it('should return array of image paths for existing album', async () => {
+      // Create test image in the album
+      const testImagePath = path.join(testAlbumPath, 'test-image.jpg');
+      await fs.writeFile(testImagePath, 'dummy image content');
+
+      const response = await request(app)
+        .get(`/face-recognition/album/${testAlbumName}/images`)
+        .send();
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('images');
+      expect(Array.isArray(response.body.images)).toBe(true);
+      expect(response.body.images).toContain(
+        path.join('storage', 'gallery', testAlbumName, 'test-image.jpg'),
+      );
+
+      // Clean up test image
+      await fs.unlink(testImagePath);
+    });
+  });
 });
