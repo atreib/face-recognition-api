@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { getHealthCheck } from '../use-cases/health/index.js';
-import { withComposable } from '../middleware/composable.js';
+import { getHealthCheck } from '../use-cases/health/index';
+import { withComposable } from '../middleware/composable';
 
 const router = Router();
 

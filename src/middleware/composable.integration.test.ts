@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import request from 'supertest';
 import { success, failure } from 'composable-functions';
-import { withComposable } from './composable.js';
+import { withComposable } from './composable';
 
 describe('Composable Middleware Integration', () => {
   const app = express();

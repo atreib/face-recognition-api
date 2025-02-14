@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Request, Response } from 'express';
-import { withComposable } from './composable.js';
+import { withComposable } from './composable';
 import { success, failure } from 'composable-functions';
 
 describe('withComposable', () => {

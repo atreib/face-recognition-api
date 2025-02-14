@@ -1,5 +1,5 @@
 import request from 'supertest';
-import app from '../app.js';
+import app from '../app';
 
 describe('Health Check Endpoint', () => {
   it('should return a valid health check response', async () => {
