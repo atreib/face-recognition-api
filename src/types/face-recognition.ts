@@ -37,3 +37,9 @@ export const AlbumImagesResponseSchema = z.object({
 });
 
 export type AlbumImagesResponse = z.infer<typeof AlbumImagesResponseSchema>;
+
+export const ImagePathRequestSchema = z.object({
+  imagePath: z.string().min(1),
+});
+
+export type ImagePathRequest = z.infer<typeof ImagePathRequestSchema>;

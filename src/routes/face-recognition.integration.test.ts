@@ -99,4 +99,50 @@ describe('Face Recognition API', () => {
       await fs.unlink(testImagePath);
     });
   });
+
+  describe('GET /face-recognition/image/:imagePath', () => {
+    const testImagePath = path.join('storage', 'faces', 'test-image.jpg');
+
+    beforeAll(async () => {
+      // Create test image
+      await fs.mkdir(path.dirname(testImagePath), { recursive: true });
+      await fs.writeFile(testImagePath, 'dummy image content');
+    });
+
+    afterAll(async () => {
+      // Clean up test image
+      try {
+        await fs.unlink(testImagePath);
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    });
+
+    it('should return 400 for paths outside storage directory', async () => {
+      const response = await request(app)
+        .get('/face-recognition/image/../outside-storage.jpg')
+        .send();
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'Invalid image path');
+    });
+
+    it('should return 404 for non-existent images', async () => {
+      const response = await request(app)
+        .get('/face-recognition/image/storage/faces/non-existent.jpg')
+        .send();
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should serve existing images', async () => {
+      const response = await request(app)
+        .get(`/face-recognition/image/${testImagePath}`)
+        .send();
+
+      expect(response.status).toBe(200);
+      expect(response.type).toBe('image/jpeg');
+      expect(response.body).toBeDefined();
+    });
+  });
 });

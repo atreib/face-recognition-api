@@ -3,7 +3,9 @@ import { findMatches, getAlbumImages } from '../use-cases/face-recognition';
 import {
   FaceMatchRequestSchema,
   AlbumImagesRequestSchema,
+  ImagePathRequestSchema,
 } from '../types/face-recognition';
+import path from 'path';
 
 const router = Router();
 
@@ -65,6 +67,40 @@ router.get('/album/:albumName/images', async (req, res) => {
   } catch (error) {
     if (error instanceof Error) {
       logger.error('Album images request failed', { error });
+      res.status(400).json({ error: error.message });
+    } else {
+      logger.error('Internal server error', { error });
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+router.get('/image/:imagePath(*)', async (req, res) => {
+  const { logger } = req;
+
+  try {
+    logger.debug('Parsing image path request');
+    const request = ImagePathRequestSchema.parse({
+      imagePath: req.params.imagePath,
+    });
+
+    logger.info('Processing image request', { request });
+
+    // Validate that the path is within our storage directory
+    const fullPath = path.join(process.cwd(), request.imagePath);
+    if (!fullPath.startsWith(path.join(process.cwd(), 'storage'))) {
+      logger.warn('Invalid image path - outside storage directory', {
+        fullPath,
+      });
+      return res.status(400).json({ error: 'Invalid image path' });
+    }
+
+    // Send the file
+    logger.info('Sending image file', { path: fullPath });
+    res.sendFile(fullPath);
+  } catch (error) {
+    if (error instanceof Error) {
+      logger.error('Image request failed', { error });
       res.status(400).json({ error: error.message });
     } else {
       logger.error('Internal server error', { error });
